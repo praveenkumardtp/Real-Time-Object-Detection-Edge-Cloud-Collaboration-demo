@@ -1,0 +1,121 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Real-Time Object Detection — Animated Demo</title>
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd"></script>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <header class="hero">
+    <h1 class="title">Real-Time Object Detection — <span class="pulse">Demo</span></h1>
+    <p class="subtitle">Model: coco-ssd (TensorFlow.js) — runs in your browser</p>
+  </header>
+
+  <main class="container">
+    <div class="video-wrap">
+      <video id="video" autoplay muted playsinline></video>
+      <canvas id="canvas"></canvas>
+    </div>
+
+    <div class="controls">
+      <button id="startBtn" class="btn">Start Camera</button>
+      <button id="stopBtn" class="btn btn-outline" disabled>Stop</button>
+      <div class="fps">FPS: <span id="fps">—</span></div>
+    </div>
+  </main>
+
+  <footer class="footer">Built with ❤️ — runs locally (needs internet for model files)</footer>
+
+  <script>
+const video = document.getElementById('video');
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+const startBtn = document.getElementById('startBtn');
+const stopBtn = document.getElementById('stopBtn');
+const fpsEl = document.getElementById('fps');
+
+let stream = null;
+let model = null;
+let running = false;
+let lastTime = performance.now();
+let frames = 0;
+
+async function loadModel() {
+  if (!model) {
+    model = await cocoSsd.load();
+    console.log('Model loaded');
+  }
+}
+
+async function startCamera() {
+  try {
+    await loadModel();
+    stream = await navigator.mediaDevices.getUserMedia({ video: { width: 1280, height: 720 }, audio: false });
+    video.srcObject = stream;
+    await video.play();
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    running = true;
+    startBtn.disabled = true;
+    stopBtn.disabled = false;
+    detectLoop();
+  } catch (err) {
+    alert('Camera error: ' + err.message + '\nIf you are testing from file://, run a local server (instructions in README).');
+    console.error(err);
+  }
+}
+
+function stopCamera() {
+  running = false;
+  startBtn.disabled = false;
+  stopBtn.disabled = true;
+  if (stream) {
+    stream.getTracks().forEach(t => t.stop());
+    stream = null;
+  }
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+}
+
+async function detectLoop() {
+  if (!running) return;
+  const now = performance.now();
+  frames++;
+  if (now - lastTime >= 1000) {
+    fpsEl.textContent = frames;
+    frames = 0;
+    lastTime = now;
+  }
+
+  const predictions = await model.detect(video);
+  ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+  predictions.forEach(p => {
+    // animated label background
+    ctx.lineWidth = 3;
+    ctx.strokeStyle = 'rgba(255,80,80,0.9)';
+    ctx.fillStyle = 'rgba(255,80,80,0.2)';
+    ctx.beginPath();
+    ctx.rect(p.bbox[0], p.bbox[1], p.bbox[2], p.bbox[3]);
+    ctx.fill();
+    ctx.stroke();
+
+    // animated text
+    const fontSize = Math.max(12, Math.round(canvas.width / 80));
+    ctx.font = fontSize + 'px Inter, Arial';
+    ctx.fillStyle = 'white';
+    const label = p.class + ' (' + Math.round(p.score*100) + '%)';
+    ctx.fillText(label, p.bbox[0] + 6, Math.max(16, p.bbox[1] + fontSize + 4));
+  });
+
+  requestAnimationFrame(detectLoop);
+}
+
+startBtn.addEventListener('click', startCamera);
+stopBtn.addEventListener('click', stopCamera);
+
+  </script>
+</body>
+</html>
