@@ -61,3 +61,9 @@ If `python` is not found on Windows, you can:
 ---
 
 ## LICENSE (MIT)
+
+
+
+
+
+Live demo: https://praveenkumardtp.github.io/Real-Time-Object-Detection-Edge-Cloud-Collaboration-demo/
